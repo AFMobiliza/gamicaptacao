@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ludo da Captação - Jogo Interativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .board-path {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .step-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .step-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .step-card.active {
+            transform: scale(1.05);
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.3);
+        }
+        
+        .dice {
+            animation: roll 0.5s ease-in-out;
+        }
+        
+        @keyframes roll {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .player-piece {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            border: 2px solid white;
+            z-index: 10;
+        }
+        
+        .modal {
+            backdrop-filter: blur(10px);
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        @keyframes float-up {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -70%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -90%) scale(0.8);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <h1 class="text-4xl font-bold text-center text-indigo-800">🎯 LUDO DA CAPTAÇÃO</h1>
+            <p class="text-center text-gray-600 mt-2">Um jogo para engajar sua equipe na arte de captar recursos!</p>
+            <div class="text-center mt-3">
+                <p class="text-sm text-gray-500">
+                    Criado por: <span class="font-semibold text-indigo-600">Alberis Santos (A&F Mobiliza)</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Controls -->
+    <div class="container mx-auto px-4 py-6">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <!-- Score and Badges Section -->
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600" id="totalScore">0</div>
+                            <div class="text-xs text-gray-600">Pontos</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="badgeCount">0</div>
+                            <div class="text-xs text-gray-600">Badges</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" id="challengesCompleted">0</div>
+                            <div class="text-xs text-gray-600">Desafios</div>
+                        </div>
+                    </div>
+                    <div id="latestBadge" class="text-2xl opacity-0 transition-opacity duration-500"></div>
+                </div>
+                
+                <!-- Badges Display -->
+                <div class="mt-3">
+                    <div class="text-xs text-gray-600 mb-2">Conquistas Desbloqueadas:</div>
+                    <div id="badgesContainer" class="flex flex-wrap gap-2">
+                        <!-- Badges will be added here dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <button id="rollDice" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                        🎲 Rolar Dado
+                    </button>
+                    <div id="diceResult" class="text-2xl font-bold text-indigo-800"></div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="text-sm text-gray-600">
+                        <span class="font-semibold">Posição Atual:</span>
+                        <span id="currentPosition" class="text-indigo-600 font-bold">START</span>
+                    </div>
+                    <button id="resetGame" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                        🔄 Reiniciar
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="mt-4">
+                <div class="bg-gray-200 rounded-full h-3">
+                    <div id="progressBar" class="progress-bar bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1 text-center">Progresso no jogo</p>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div class="board-path">
+            <!-- START -->
+            <div class="step-card bg-gradient-to-br from-green-400 to-green-600 text-white p-4 rounded-xl shadow-lg col-span-4" data-step="0">
+                <div class="text-center">
+                    <div class="text-3xl mb-2">🏁</div>
+                    <h3 class="font-bold text-lg">START</h3>
+                    <p class="text-sm opacity-90">Onde tudo começa!</p>
+                </div>
+            </div>
+
+            <!-- Steps 1-11 -->
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500" data-step="1">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">1️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">APRESENTAÇÃO DA ONG</h4>
+                <p class="text-xs text-gray-600">Como contar nossa história e missão?</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-purple-500" data-step="2">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">2️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">DIAGNÓSTICO INTERNO</h4>
+                <p class="text-xs text-gray-600">Quais são nossos pontos fortes e fracos?</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-pink-500" data-step="3">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">3️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">BENCHMARKING</h4>
+                <p class="text-xs text-gray-600">O que outras organizações fazem?</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-red-500" data-step="4">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">4️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">CENÁRIO EXTERNO</h4>
+                <p class="text-xs text-gray-600">Fatores externos que impactam</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-500" data-step="5">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">5️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">ANÁLISE FOFA</h4>
+                <p class="text-xs text-gray-600">Forças, Oportunidades, Fragilidades, Ameaças</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-yellow-500" data-step="6">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">6️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">OBJETIVOS</h4>
+                <p class="text-xs text-gray-600">Por que e para que captar?</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-green-500" data-step="7">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">7️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">METAS</h4>
+                <p class="text-xs text-gray-600">Defina números: Ex: +20%!</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-teal-500" data-step="8">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">8️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">FONTES</h4>
+                <p class="text-xs text-gray-600">Física, Jurídica, Governo, Internacional</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-cyan-500" data-step="9">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">9️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">ESTRATÉGIAS</h4>
+                <p class="text-xs text-gray-600">Eventos, editais, campanhas...</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-indigo-500" data-step="10">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">🔟</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">PLANO OPERACIONAL</h4>
+                <p class="text-xs text-gray-600">Quem, quando, como?</p>
+            </div>
+
+            <div class="step-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-violet-500" data-step="11">
+                <div class="player-piece bg-blue-500" style="display: none;"></div>
+                <div class="text-2xl mb-2">1️⃣1️⃣</div>
+                <h4 class="font-semibold text-sm text-gray-800 mb-1">ACOMPANHAMENTO</h4>
+                <p class="text-xs text-gray-600">Avaliação e ajustes</p>
+            </div>
+
+            <!-- FINISH -->
+            <div class="step-card bg-gradient-to-br from-yellow-400 to-orange-500 text-white p-4 rounded-xl shadow-lg col-span-4" data-step="12">
+                <div class="text-center">
+                    <div class="text-3xl mb-2">🏆</div>
+                    <h3 class="font-bold text-lg">RECURSO CAPTADO!</h3>
+                    <p class="text-sm opacity-90">Parabéns! Você dominou o processo! 🎉</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tools and Resources Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+            <h2 class="text-2xl font-bold text-indigo-800 mb-4 text-center">🛠️ FERRAMENTAS ÚTEIS PARA SUA CAPTAÇÃO</h2>
+            <p class="text-gray-600 text-center mb-6">Links e recursos para ajudar sua ONG a criar um plano de captação eficiente</p>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Planning Tools -->
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+                    <h3 class="font-semibold text-blue-800 mb-2">📋 PLANEJAMENTO</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://www.canva.com" target="_blank" class="text-blue-600 hover:underline">• Canva - Design e templates</a></li>
+                        <li><a href="https://trello.com" target="_blank" class="text-blue-600 hover:underline">• Trello - Organização de tarefas</a></li>
+                        <li><a href="https://www.notion.so" target="_blank" class="text-blue-600 hover:underline">• Notion - Gestão de projetos</a></li>
+                        <li><a href="https://miro.com" target="_blank" class="text-blue-600 hover:underline">• Miro - Matriz FOFA visual</a></li>
+                    </ul>
+                </div>
+
+                <!-- Research Tools -->
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
+                    <h3 class="font-semibold text-green-800 mb-2">🔍 PESQUISA</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://www.prosas.com.br" target="_blank" class="text-green-600 hover:underline">• Prosas - Editais e oportunidades</a></li>
+                        <li><a href="https://capta.org.br/fontes-de-financiamento/oportunidades/" target="_blank" class="text-green-600 hover:underline">• Capta - Fontes de financiamento</a></li>
+                        <li><a href="https://www.abong.org.br" target="_blank" class="text-green-600 hover:underline">• ABONG - Associação ONGs</a></li>
+                        <li><a href="https://www.gife.org.br" target="_blank" class="text-green-600 hover:underline">• GIFE - Investimento Social</a></li>
+                        <li><a href="https://www.idis.org.br" target="_blank" class="text-green-600 hover:underline">• IDIS - Instituto para Desenvolvimento</a></li>
+                    </ul>
+                </div>
+
+                <!-- Communication Tools -->
+                <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-lg">
+                    <h3 class="font-semibold text-purple-800 mb-2">📢 COMUNICAÇÃO</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://www.canva.com" target="_blank" class="text-purple-600 hover:underline">• Canva - Design gráfico</a></li>
+                        <li><a href="https://mailchimp.com" target="_blank" class="text-purple-600 hover:underline">• Mailchimp - Email marketing</a></li>
+                        <li><a href="https://buffer.com" target="_blank" class="text-purple-600 hover:underline">• Buffer - Gestão redes sociais</a></li>
+                        <li><a href="https://www.depropositocomunica.com/" target="_blank" class="text-purple-600 hover:underline">• DePropósito - Comunicação de causas</a></li>
+                    </ul>
+                </div>
+
+                <!-- Financial Tools -->
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
+                    <h3 class="font-semibold text-yellow-800 mb-2">💰 FINANCEIRO</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://www.sympla.com.br" target="_blank" class="text-yellow-600 hover:underline">• Sympla - Eventos e vendas</a></li>
+                        <li><a href="https://www.kickante.com.br" target="_blank" class="text-yellow-600 hover:underline">• Kickante - Crowdfunding</a></li>
+                        <li><a href="https://www.vakinha.com.br" target="_blank" class="text-yellow-600 hover:underline">• Vakinha - Arrecadação online</a></li>
+                        <li><a href="https://pagseguro.uol.com.br" target="_blank" class="text-yellow-600 hover:underline">• PagSeguro - Pagamentos</a></li>
+                    </ul>
+                </div>
+
+                <!-- Legal Tools -->
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                    <h3 class="font-semibold text-red-800 mb-2">⚖️ JURÍDICO</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://www.gov.br/receitafederal/pt-br" target="_blank" class="text-red-600 hover:underline">• Receita Federal</a></li>
+                        <li><a href="https://www.institutofilantropia.org.br" target="_blank" class="text-red-600 hover:underline">• Instituto Filantropia</a></li>
+                        <li><a href="https://www.idis.org.br" target="_blank" class="text-red-600 hover:underline">• IDIS - Marco Legal</a></li>
+                    </ul>
+                </div>
+
+                <!-- Learning Resources -->
+                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-lg">
+                    <h3 class="font-semibold text-indigo-800 mb-2">📚 CAPACITAÇÃO</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://www.escolaaberta3setor.org.br" target="_blank" class="text-indigo-600 hover:underline">• Escola Aberta 3º Setor</a></li>
+                        <li><a href="https://www.coursera.org" target="_blank" class="text-indigo-600 hover:underline">• Coursera - Cursos online</a></li>
+                        <li><a href="https://www.udemy.com" target="_blank" class="text-indigo-600 hover:underline">• Udemy - Capacitação</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Special Section for A&F Mobiliza -->
+            <div class="bg-gradient-to-r from-indigo-100 to-purple-100 border-2 border-indigo-300 rounded-lg p-6 mt-6">
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-indigo-800 mb-2">🎯 CONSULTORIA ESPECIALIZADA</h3>
+                    <p class="text-gray-700 mb-4">Precisa de ajuda personalizada para sua estratégia de captação?</p>
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <a href="mailto:captacao@afmobiliza.com.br" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                            📧 Contatar A&F Mobiliza
+                        </a>
+                        <a href="https://wa.me/" target="_blank" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                            📱 WhatsApp
+                        </a>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-3">
+                        <strong>Alberis Santos</strong> - Especialista em Captação de Recursos para ONGs
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Step Details -->
+    <div id="stepModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 m-4 max-w-lg w-full max-h-96 overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-800 pr-4"></h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700 text-2xl flex-shrink-0">&times;</button>
+            </div>
+            <div id="modalContent" class="text-gray-600 mb-4 leading-relaxed"></div>
+            
+            <!-- Mini Challenge Section -->
+            <div id="challengeSection" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg mb-4" style="display: none;">
+                <h4 class="font-semibold text-yellow-800 mb-2">🎯 Mini-Desafio:</h4>
+                <p id="challengeText" class="text-yellow-700 text-sm mb-3"></p>
+                <button id="completeChallenge" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                    ✅ Completei o Desafio! (+50 pontos)
+                </button>
+            </div>
+
+            <!-- Real Case Section -->
+            <div id="realCaseSection" class="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg mb-4" style="display: none;">
+                <h4 class="font-semibold text-green-800 mb-2">📚 Caso Real:</h4>
+                <p id="realCaseText" class="text-green-700 text-sm"></p>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                <h4 class="font-semibold text-blue-800 mb-2">💡 Dica para sua equipe:</h4>
+                <p id="modalTip" class="text-blue-700 text-sm leading-relaxed whitespace-pre-wrap"></p>
+            </div>
+            <button id="continueGame" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold">
+                Continuar Jogo
+            </button>
+        </div>
+    </div>
+
+    <script>
+        class LudoCaptacao {
+            constructor() {
+                this.currentPosition = 0;
+                this.totalSteps = 12;
+                this.visitedSteps = new Set([0]); // Track visited steps, start with step 0
+                this.diceSequence = 1; // Sequential dice counter
+                this.totalScore = 0;
+                this.badges = new Set();
+                this.challengesCompleted = 0;
+                this.completedChallenges = new Set();
+                this.wildCardQuestions = [
+                    "🤔 Vocês estão realmente ouvindo o que os doadores precisam?",
+                    "💭 A equipe está preparada para adaptar a estratégia quando necessário?",
+                    "🎯 Vocês conhecem bem o perfil dos seus doadores atuais?",
+                    "📊 A organização tem dados suficientes para tomar decisões?",
+                    "🤝 A equipe está alinhada com os objetivos de captação?",
+                    "💡 Vocês estão sendo criativos o suficiente nas estratégias?",
+                    "🔍 A análise do cenário externo está sendo feita regularmente?",
+                    "⚖️ Há equilíbrio entre diferentes fontes de captação?",
+                    "📈 Os resultados estão sendo medidos e acompanhados?",
+                    "🎪 A apresentação da ONG é envolvente e emociona?",
+                    "💰 Você tem um plano orçamentário elaborado? Não? Então pense no quanto você precisa, é importante ser estratégico, e não agir no impulso. Lembre-se: captação é processo.",
+                    "🎨 Vocês têm materiais de comunicação profissionais e atualizados?",
+                    "📱 A presença digital da organização reflete sua missão de forma clara?",
+                    "🤝 Vocês cultivam relacionamentos de longo prazo com os doadores?",
+                    "📋 A equipe documenta e compartilha as lições aprendidas?",
+                    "🎯 Os projetos têm objetivos claros e resultados mensuráveis?",
+                    "💬 Vocês sabem contar histórias que tocam o coração dos doadores?",
+                    "🔄 A organização tem processos claros para captação de recursos?",
+                    "📞 Vocês fazem follow-up adequado com potenciais doadores?",
+                    "🏆 A equipe celebra as conquistas e aprende com os desafios?",
+                    "📝 Vocês têm um banco de dados organizado de contatos?",
+                    "🎪 A causa da organização é apresentada de forma inspiradora?",
+                    "💼 A equipe está capacitada para fazer apresentações profissionais?",
+                    "🌟 Vocês destacam o impacto real que os recursos geram?",
+                    "🤔 A organização tem credibilidade e transparência comprovadas?"
+                ]
+                
+                this.miniChallenges = {
+                    1: "Crie um elevator pitch de 30 segundos para sua ONG que emocione e conecte!",
+                    2: "Liste 3 pontos fortes e 3 pontos fracos da sua organização na captação",
+                    3: "Pesquise e anote 2 estratégias de captação de ONGs similares à sua",
+                    4: "Identifique 3 fatores externos que podem impactar sua captação este ano",
+                    5: "Preencha uma matriz FOFA completa para sua organização",
+                    6: "Defina 1 objetivo SMART para sua próxima campanha de captação",
+                    7: "Estabeleça uma meta numérica realista para os próximos 6 meses",
+                    8: "Identifique 5 potenciais fontes de captação para sua causa",
+                    9: "Escolha 3 estratégias que mais combinam com seu público-alvo",
+                    10: "Crie um cronograma de 30 dias com responsáveis e prazos",
+                    11: "Defina 3 indicadores para medir o sucesso da sua captação"
+                };
+
+                this.realCases = {
+                    1: "A Fundação SOS Mata Atlântica criou um pitch emocional mostrando o impacto direto: 'Cada R$ 50 protege 1 hectare de floresta por 1 ano'. Resultado: 300% mais doações.",
+                    2: "O Instituto Ayrton Senna descobriu que sua força era a credibilidade da marca, mas sua fraqueza era comunicação digital. Investiram em redes sociais e aumentaram captação em 150%.",
+                    3: "A APAE Nacional estudou estratégias internacionais e adaptou o modelo de 'apadrinhamento' dos EUA, criando o programa 'Adote um Sorriso'.",
+                    4: "Durante a pandemia, a Cufa identificou o cenário de crise como oportunidade e criou campanhas emergenciais, captando R$ 50 milhões em 2020.",
+                    5: "O Greenpeace Brasil usa análise FOFA anualmente: transformou a 'ameaça' das fake news em 'oportunidade' criando campanhas de fact-checking.",
+                    6: "A Médicos Sem Fronteiras definiu objetivo SMART: 'Captar R$ 2 milhões em 6 meses para atender 10.000 refugiados'. Resultado: superaram em 20%.",
+                    7: "O Instituto Ronald McDonald estabeleceu meta de aumentar doações recorrentes em 40% e criou programa de fidelização que superou a meta.",
+                    8: "A Pastoral da Criança diversificou fontes: 30% pessoas físicas, 25% empresas, 25% governo, 20% internacional. Reduziu riscos e aumentou estabilidade.",
+                    9: "A AACD descobriu que eventos presenciais geravam mais engajamento que digitais para seu público 50+, focando nessa estratégia.",
+                    10: "O Instituto Alana criou cronograma detalhado para campanha de fim de ano: 60 dias de planejamento resultaram em recorde de arrecadação.",
+                    11: "A Fundação Abrinq acompanha mensalmente: taxa de conversão, ticket médio, retenção de doadores. Ajustes constantes aumentaram eficiência em 80%."
+                };
+
+                this.badgeDefinitions = {
+                    'first_step': { emoji: '🚀', name: 'Primeiro Passo', description: 'Começou a jornada!' },
+                    'challenger': { emoji: '🎯', name: 'Desafiador', description: 'Completou primeiro desafio' },
+                    'strategist': { emoji: '🧠', name: 'Estrategista', description: 'Dominou análise FOFA' },
+                    'networker': { emoji: '🤝', name: 'Networker', description: 'Identificou múltiplas fontes' },
+                    'planner': { emoji: '📋', name: 'Planejador', description: 'Criou plano operacional' },
+                    'achiever': { emoji: '🏆', name: 'Conquistador', description: 'Completou 5 desafios' },
+                    'expert': { emoji: '⭐', name: 'Especialista', description: 'Chegou ao final!' },
+                    'wildcard_master': { emoji: '🃏', name: 'Mestre dos Coringas', description: 'Respondeu 3 coringas' },
+                    'perfectionist': { emoji: '💎', name: 'Perfeccionista', description: 'Completou todos os desafios' }
+                };
+
+                this.stepDetails = {
+                    0: {
+                        title: "🏁 START - Onde tudo começa!",
+                        content: "Bem-vindos ao Ludo da Captação! Aqui vocês vão aprender de forma divertida todos os passos para uma captação de recursos eficiente.",
+                        tip: "Reúna sua equipe e preparem-se para uma jornada de aprendizado gamificada!"
+                    },
+                    1: {
+                        title: "1️⃣ APRESENTAÇÃO DA ONG",
+                        content: "Como contar nossa história e nossa missão de forma envolvente?",
+                        tip: "Criem um elevator pitch de 30 segundos que emocione e conecte com o doador!"
+                    },
+                    2: {
+                        title: "2️⃣ DIAGNÓSTICO INTERNO",
+                        content: "Quais são nossos pontos fortes e fracos na captação?",
+                        tip: "Façam uma análise honesta: o que vocês fazem bem e onde precisam melhorar?"
+                    },
+                    3: {
+                        title: "3️⃣ BENCHMARKING",
+                        content: "O que outras organizações estão fazendo que pode nos inspirar?",
+                        tip: "Pesquisem 3 ONGs similares e identifiquem suas melhores práticas de captação!"
+                    },
+                    4: {
+                        title: "4️⃣ ANÁLISE DO CENÁRIO EXTERNO",
+                        content: "Quais fatores externos impactam nossa captação?",
+                        tip: "Considerem economia, política, tendências sociais e tecnológicas do momento!"
+                    },
+                    5: {
+                        title: "5️⃣ ANÁLISE FOFA",
+                        content: "Hora de cruzar tudo: Forças, Oportunidades, Fragilidades, Ameaças",
+                        tip: "Usem uma matriz FOFA para visualizar claramente o contexto da organização!"
+                    },
+                    6: {
+                        title: "6️⃣ OBJETIVOS DO PLANO",
+                        content: "Por que e para que vamos captar recursos?",
+                        tip: "Definam objetivos SMART: Específicos, Mensuráveis, Atingíveis, Relevantes, Temporais!"
+                    },
+                    7: {
+                        title: "7️⃣ METAS DE CAPTAÇÃO",
+                        content: "Defina números concretos: Ex: aumentar em +20%!",
+                        tip: "Sejam ambiciosos mas realistas. Baseiem as metas no histórico e capacidade atual!"
+                    },
+                    8: {
+                        title: "8️⃣ FONTES DE CAPTAÇÃO",
+                        content: "Pessoa Física, Jurídica, Governo ou Internacional?",
+                        tip: "Diversifiquem as fontes para reduzir riscos. Não dependam de uma única fonte!"
+                    },
+                    9: {
+                        title: "9️⃣ ESTRATÉGIAS DE CAPTAÇÃO",
+                        content: "Eventos, editais, campanhas, relacionamento... bora planejar!",
+                        tip: "Escolham estratégias que combinem com o perfil da organização e do público-alvo!"
+                    },
+                    10: {
+                        title: "🔟 PLANO OPERACIONAL",
+                        content: "Quem faz o quê, quando e como?",
+                        tip: "Criem um cronograma detalhado com responsáveis, prazos e recursos necessários!"
+                    },
+                    11: {
+                        title: "1️⃣1️⃣ ACOMPANHAMENTO E AVALIAÇÃO",
+                        content: "Como saber se estamos no caminho certo?",
+                        tip: "Definam indicadores de sucesso e façam reuniões regulares de acompanhamento!"
+                    },
+                    12: {
+                        title: "🏆 RECURSO CAPTADO!",
+                        content: "Parabéns! Vocês dominaram todo o processo de captação de recursos!",
+                        tip: "Agora é hora de colocar em prática tudo que aprenderam. Sucesso na captação!"
+                    }
+                };
+                
+                this.initializeGame();
+            }
+
+            initializeGame() {
+                this.updatePlayerPosition();
+                this.updateProgress();
+                this.updateScoreDisplay();
+                this.updateBadgesDisplay();
+                
+                document.getElementById('rollDice').addEventListener('click', () => this.rollDice());
+                document.getElementById('resetGame').addEventListener('click', () => this.resetGame());
+                document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
+                document.getElementById('continueGame').addEventListener('click', () => this.closeModal());
+                document.getElementById('completeChallenge').addEventListener('click', () => this.completeChallenge());
+                
+                // Add click listeners to step cards
+                document.querySelectorAll('.step-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const step = parseInt(card.dataset.step);
+                        if (step <= this.currentPosition) {
+                            this.showStepDetails(step);
+                        }
+                    });
+                });
+            }
+
+            rollDice() {
+                const diceElement = document.getElementById('diceResult');
+                
+                diceElement.textContent = '🎲';
+                diceElement.classList.add('dice');
+                
+                setTimeout(() => {
+                    // 20% chance of wild card (coringa)
+                    const isWildCard = Math.random() < 0.2;
+                    
+                    if (isWildCard) {
+                        diceElement.textContent = '🃏';
+                        diceElement.classList.remove('dice');
+                        this.showWildCard();
+                    } else {
+                        // Sequential dice: 1, 2, 3, 4, 5, 6, then repeat
+                        const dice = this.diceSequence;
+                        this.diceSequence = this.diceSequence >= 6 ? 1 : this.diceSequence + 1;
+                        
+                        diceElement.textContent = dice;
+                        diceElement.classList.remove('dice');
+                        this.movePlayer(dice);
+                    }
+                }, 500);
+            }
+
+            movePlayer(steps) {
+                // Move one step at a time sequentially
+                let newPosition = this.currentPosition + 1;
+                
+                // Don't go beyond the total steps
+                if (newPosition > this.totalSteps) {
+                    newPosition = this.totalSteps;
+                }
+                
+                // If trying to reach the final step (12), check if all steps 1-11 have been visited
+                if (newPosition === this.totalSteps && !this.allStepsVisited()) {
+                    // Don't move to final step yet
+                    return;
+                }
+                
+                this.currentPosition = newPosition;
+                this.markStepAsVisited(newPosition);
+                this.updatePlayerPosition();
+                this.updateProgress();
+                
+                setTimeout(() => {
+                    this.showStepDetails(this.currentPosition);
+                }, 300);
+            }
+
+            updatePlayerPosition() {
+                // Hide all player pieces
+                document.querySelectorAll('.player-piece').forEach(piece => {
+                    piece.style.display = 'none';
+                });
+                
+                // Show current position
+                const currentCard = document.querySelector(`[data-step="${this.currentPosition}"]`);
+                if (currentCard) {
+                    const playerPiece = currentCard.querySelector('.player-piece');
+                    if (playerPiece) {
+                        playerPiece.style.display = 'block';
+                    }
+                    
+                    // Update active state
+                    document.querySelectorAll('.step-card').forEach(card => {
+                        card.classList.remove('active');
+                    });
+                    currentCard.classList.add('active');
+                }
+                
+                // Update position text
+                const positionNames = ['START', 'Apresentação', 'Diagnóstico', 'Benchmarking', 'Cenário Externo', 
+                                    'Análise FOFA', 'Objetivos', 'Metas', 'Fontes', 'Estratégias', 
+                                    'Plano Operacional', 'Acompanhamento', 'RECURSO CAPTADO!'];
+                document.getElementById('currentPosition').textContent = positionNames[this.currentPosition];
+            }
+
+            updateProgress() {
+                const progress = (this.currentPosition / this.totalSteps) * 100;
+                document.getElementById('progressBar').style.width = `${progress}%`;
+            }
+
+            showStepDetails(step) {
+                const details = this.stepDetails[step];
+                if (details) {
+                    document.getElementById('modalTitle').textContent = details.title;
+                    document.getElementById('modalContent').textContent = details.content;
+                    document.getElementById('modalTip').textContent = details.tip;
+                    
+                    // Show mini-challenge if available and not completed
+                    const challengeSection = document.getElementById('challengeSection');
+                    const realCaseSection = document.getElementById('realCaseSection');
+                    
+                    if (step > 0 && step <= 11 && !this.completedChallenges.has(step)) {
+                        document.getElementById('challengeText').textContent = this.miniChallenges[step];
+                        challengeSection.style.display = 'block';
+                        challengeSection.dataset.step = step;
+                    } else {
+                        challengeSection.style.display = 'none';
+                    }
+                    
+                    // Show real case if available
+                    if (step > 0 && step <= 11 && this.realCases[step]) {
+                        document.getElementById('realCaseText').textContent = this.realCases[step];
+                        realCaseSection.style.display = 'block';
+                    } else {
+                        realCaseSection.style.display = 'none';
+                    }
+                    
+                    document.getElementById('stepModal').classList.remove('hidden');
+                    document.getElementById('stepModal').classList.add('flex');
+                    
+                    // Award points for visiting step
+                    if (step > 0 && !this.visitedSteps.has(step)) {
+                        this.addScore(20, `Visitou: ${details.title}`);
+                    }
+                }
+            }
+
+            completeChallenge() {
+                const challengeSection = document.getElementById('challengeSection');
+                const step = parseInt(challengeSection.dataset.step);
+                
+                if (step && !this.completedChallenges.has(step)) {
+                    this.completedChallenges.add(step);
+                    this.challengesCompleted++;
+                    this.addScore(50, 'Desafio Completado!');
+                    
+                    // Check for badges
+                    this.checkBadges();
+                    
+                    // Hide challenge section
+                    challengeSection.style.display = 'none';
+                    
+                    // Update display
+                    this.updateScoreDisplay();
+                }
+            }
+
+            addScore(points, reason) {
+                this.totalScore += points;
+                this.showScoreAnimation(points, reason);
+                this.updateScoreDisplay();
+            }
+
+            showScoreAnimation(points, reason) {
+                // Create floating score animation
+                const scoreElement = document.createElement('div');
+                scoreElement.textContent = `+${points}`;
+                scoreElement.className = 'fixed text-2xl font-bold text-green-500 z-50 pointer-events-none';
+                scoreElement.style.left = '50%';
+                scoreElement.style.top = '30%';
+                scoreElement.style.transform = 'translate(-50%, -50%)';
+                scoreElement.style.animation = 'float-up 2s ease-out forwards';
+                
+                document.body.appendChild(scoreElement);
+                
+                setTimeout(() => {
+                    document.body.removeChild(scoreElement);
+                }, 2000);
+            }
+
+            checkBadges() {
+                const newBadges = [];
+                
+                // First step badge
+                if (this.currentPosition >= 1 && !this.badges.has('first_step')) {
+                    newBadges.push('first_step');
+                }
+                
+                // Challenger badge
+                if (this.challengesCompleted >= 1 && !this.badges.has('challenger')) {
+                    newBadges.push('challenger');
+                }
+                
+                // Strategist badge (FOFA step)
+                if (this.visitedSteps.has(5) && !this.badges.has('strategist')) {
+                    newBadges.push('strategist');
+                }
+                
+                // Networker badge (Sources step)
+                if (this.visitedSteps.has(8) && !this.badges.has('networker')) {
+                    newBadges.push('networker');
+                }
+                
+                // Planner badge (Operational plan step)
+                if (this.visitedSteps.has(10) && !this.badges.has('planner')) {
+                    newBadges.push('planner');
+                }
+                
+                // Achiever badge
+                if (this.challengesCompleted >= 5 && !this.badges.has('achiever')) {
+                    newBadges.push('achiever');
+                }
+                
+                // Expert badge
+                if (this.currentPosition >= 12 && !this.badges.has('expert')) {
+                    newBadges.push('expert');
+                }
+                
+                // Perfectionist badge
+                if (this.challengesCompleted >= 11 && !this.badges.has('perfectionist')) {
+                    newBadges.push('perfectionist');
+                }
+                
+                // Award new badges
+                newBadges.forEach(badgeId => {
+                    this.awardBadge(badgeId);
+                });
+            }
+
+            awardBadge(badgeId) {
+                this.badges.add(badgeId);
+                const badge = this.badgeDefinitions[badgeId];
+                
+                // Show badge animation
+                const latestBadge = document.getElementById('latestBadge');
+                latestBadge.textContent = badge.emoji;
+                latestBadge.style.opacity = '1';
+                
+                setTimeout(() => {
+                    latestBadge.style.opacity = '0';
+                }, 3000);
+                
+                // Add to badges container
+                this.updateBadgesDisplay();
+                
+                // Award bonus points
+                this.addScore(100, `Badge: ${badge.name}`);
+            }
+
+            updateScoreDisplay() {
+                document.getElementById('totalScore').textContent = this.totalScore;
+                document.getElementById('badgeCount').textContent = this.badges.size;
+                document.getElementById('challengesCompleted').textContent = this.challengesCompleted;
+            }
+
+            updateBadgesDisplay() {
+                const container = document.getElementById('badgesContainer');
+                container.innerHTML = '';
+                
+                this.badges.forEach(badgeId => {
+                    const badge = this.badgeDefinitions[badgeId];
+                    const badgeElement = document.createElement('div');
+                    badgeElement.className = 'bg-white rounded-full px-3 py-1 text-sm border-2 border-purple-200 flex items-center gap-1';
+                    badgeElement.innerHTML = `<span>${badge.emoji}</span><span class="text-xs">${badge.name}</span>`;
+                    badgeElement.title = badge.description;
+                    container.appendChild(badgeElement);
+                });
+            }
+
+            closeModal() {
+                document.getElementById('stepModal').classList.add('hidden');
+                document.getElementById('stepModal').classList.remove('flex');
+            }
+
+            markStepAsVisited(step) {
+                this.visitedSteps.add(step);
+            }
+
+            allStepsVisited() {
+                // Check if all steps from 1 to 11 have been visited
+                for (let i = 1; i <= 11; i++) {
+                    if (!this.visitedSteps.has(i)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            showWildCard() {
+                const randomQuestion = this.wildCardQuestions[Math.floor(Math.random() * this.wildCardQuestions.length)];
+                
+                // Award points for wild card
+                this.addScore(30, 'Carta Coringa!');
+                
+                // Check for wildcard master badge
+                this.wildCardCount = (this.wildCardCount || 0) + 1;
+                if (this.wildCardCount >= 3 && !this.badges.has('wildcard_master')) {
+                    this.awardBadge('wildcard_master');
+                }
+                
+                // Show wild card modal
+                document.getElementById('modalTitle').textContent = "🃏 CORINGA - MOMENTO DE REFLEXÃO";
+                document.getElementById('modalContent').textContent = "Pausa para reflexão estratégica!";
+                document.getElementById('modalTip').textContent = randomQuestion;
+                
+                // Hide challenge and case sections for wildcards
+                document.getElementById('challengeSection').style.display = 'none';
+                document.getElementById('realCaseSection').style.display = 'none';
+                
+                document.getElementById('stepModal').classList.remove('hidden');
+                document.getElementById('stepModal').classList.add('flex');
+            }
+
+            resetGame() {
+                this.currentPosition = 0;
+                this.visitedSteps = new Set([0]); // Reset visited steps
+                this.diceSequence = 1; // Reset dice sequence
+                this.totalScore = 0;
+                this.badges = new Set();
+                this.challengesCompleted = 0;
+                this.completedChallenges = new Set();
+                this.updatePlayerPosition();
+                this.updateProgress();
+                this.updateScoreDisplay();
+                this.updateBadgesDisplay();
+                document.getElementById('diceResult').textContent = '';
+            }
+        }
+
+        // Initialize the game when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new LudoCaptacao();
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'963761bba6cff622',t:'MTc1MzIzMzkwNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
